@@ -88,7 +88,7 @@ int main(int argn,char *argv[])
     exit(-1);
     }
   //creare statistics.txt
-  int fis=open("statistics.txt",O_RDWR|O_CREAT, S_IRUSR|S_IWUSR|S_IXUSR|S_IROTH|S_IWOTH|S_IXOTH);
+  int fis=open("statistics.txt",O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IXUSR|S_IROTH|S_IWOTH|S_IXOTH);
   if(fis==-1)
     {
       perror("nu s-a putut crea fisierul");
