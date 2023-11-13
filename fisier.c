@@ -13,10 +13,12 @@
 
 
 struct stat var;
+struct stat var2;
 struct stat intrare;
 struct stat fisier_leg_simbolica;
 struct dirent *dirr=NULL;
 DIR *dir=NULL;
+DIR *dir2=NULL;
 int fis;
 char buffer[1024];
 int bytes_written;
@@ -58,7 +60,7 @@ char* mode_to_str(mode_t mode) {
   }
 }
 
-void Permisiuni()
+void Permisiuni(int fis)
 {
   char user_permissions_str[4];
   strcpy(user_permissions_str, mode_to_str(intrare.st_mode & S_IRWXU));
@@ -171,16 +173,18 @@ void Legatura_simbolica(char name[])
 
 int main(int argn,char *argv[])
 {
-  if(argn!=2)
+  if(argn!=3)
     {
       perror("eroare\n");
       exit(-1);
     }
+  //directorul intrare
+  
   if(lstat(argv[1],&var)!=-1)
     {
       if(!S_ISDIR(var.st_mode))
 	{
-	  perror("nu e director\n");
+	  perror("nu e director de intrare\n");
 	  exit(-1);
 	}
       else
@@ -190,23 +194,45 @@ int main(int argn,char *argv[])
     }
   else
     {
-      perror("nicio informatie despre director\n");
+      perror("nicio informatie despre director intrare\n");
       exit(-1);
     }
 
-  
-  
-  //creare statistics.txt
+  //director iesire
 
-  
-  fis=open("statistics.txt",O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IXUSR|S_IROTH|S_IWOTH|S_IXOTH);
-  if(fis==-1)
+  if(lstat(argv[2],&var2)!=-1)
     {
-      perror("nu s-a putut crea fisierul");
-      exit(-1);
+      if(!S_ISDIR(var2.st_mode))
+	{
+	  perror("nu e director de iesire\n");
+	  exit(-1);
+	}
+      else
+	{
+	  printf("succes\n");
+	}
     }
   else
-    printf("fisierul este deschis\n");
+    {
+      perror("nicio informatie despre director iesire\n");
+      exit(-1);
+    }
+
+  //deschidere director iesire
+
+   if(!(dir2=opendir(argv[2])))
+    {
+      perror("eroare la deschiderea directorului iesire\n");
+      exit(-1);
+      
+    }
+  
+  //creare statistics.txt 
+
+   char path_dir[1026];
+   char new_file_name[1024];
+ 
+ 
 
   //parcurgere director
   
@@ -218,12 +244,27 @@ int main(int argn,char *argv[])
       
     }
   
+  
   char path_name[258];
   while((dirr=readdir(dir)))
     {
       if(strcmp(dirr->d_name,".")!=0 && strcmp(dirr->d_name,"..")!=0)
 	{
-      
+
+	  sprintf(new_file_name,"%s%s",dirr->d_name,"_statistics.txt");
+	  sprintf(path_dir,"%s/%s",argv[2],new_file_name);
+	  fis=open(path_dir,O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IXUSR|S_IROTH|S_IWOTH|S_IXOTH);
+	  if(fis==-1)
+	    {
+	      perror("nu s-a putut crea fisierul");
+	      exit(-1);
+	    }
+	  else
+	    printf("fisierul este deschis\n");
+	  
+	 
+	  
+	  
 	  sprintf(path_name,"%s/%s",argv[1],dirr->d_name);
 	  if(lstat(path_name,&intrare)!=-1)
 	    {
@@ -232,20 +273,20 @@ int main(int argn,char *argv[])
 		{
 		  
 		  Director(dirr->d_name);
-		  Permisiuni();
+		  Permisiuni(fis);
 		}
 	      
 	      if(S_ISREG(intrare.st_mode) && strstr(path_name,".bmp"))
 		{
 		  Fisier_BMP(dirr->d_name, path_name);
-		  Permisiuni();
+		  Permisiuni(fis);
 		}
 	      else
 		{
 		  if(S_ISREG(intrare.st_mode))
 		    {
 		      Fisier(dirr->d_name);
-		      Permisiuni();
+		      Permisiuni(fis);
 		    }
 		}
 	      
@@ -256,7 +297,7 @@ int main(int argn,char *argv[])
 		      if(S_ISREG(fisier_leg_simbolica.st_mode))
 			{
 			  Legatura_simbolica(dirr->d_name);
-			  Permisiuni();
+			  Permisiuni(fis);
 			}
 		    }
 		}
