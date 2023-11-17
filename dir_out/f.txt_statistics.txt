@@ -1,0 +1,8 @@
+Nume fisier: f.txt
+Dimensiune: 8 bytes
+Identificatorul utilizatorului: 1000
+Timpul ultimei modificari: 17.11.2023
+Contorul de legaturi: 1
+Drepturi de acces user: RW-
+Drepturi de acces grup: RW-
+Drepturi de acces altii: R--

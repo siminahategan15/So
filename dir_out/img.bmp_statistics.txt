@@ -1,0 +1,10 @@
+Nume fisier: img.bmp
+Inaltime: 853
+Lungime: 1280
+Dimensiune: 3275576 bytes
+Identificatorul utilizatorului: 1000
+Timpul ultimei modificari: 17.11.2023
+Contorul de legaturi: 1
+Drepturi de acces user: RWX
+Drepturi de acces grup: ---
+Drepturi de acces altii: ---

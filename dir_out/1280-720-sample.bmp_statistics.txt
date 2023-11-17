@@ -1,0 +1,10 @@
+Nume fisier: 1280-720-sample.bmp
+Inaltime: 720
+Lungime: 1280
+Dimensiune: 2764856 bytes
+Identificatorul utilizatorului: 1000
+Timpul ultimei modificari: 17.11.2023
+Contorul de legaturi: 1
+Drepturi de acces user: RW-
+Drepturi de acces grup: RW-
+Drepturi de acces altii: R--

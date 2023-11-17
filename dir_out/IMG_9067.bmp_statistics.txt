@@ -1,0 +1,10 @@
+Nume fisier: IMG_9067.bmp
+Inaltime: 2500
+Lungime: 2000
+Dimensiune: 20000138 bytes
+Identificatorul utilizatorului: 1000
+Timpul ultimei modificari: 17.11.2023
+Contorul de legaturi: 1
+Drepturi de acces user: RW-
+Drepturi de acces grup: RW-
+Drepturi de acces altii: R--
