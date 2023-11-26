@@ -11,7 +11,8 @@
 #include<string.h>
 #include<time.h>
 #include<dirent.h>
-
+#include<unistd.h>
+#include<ctype.h>
 
 struct stat var;
 struct stat var2;
@@ -174,7 +175,7 @@ void Legatura_simbolica(char name[])
 } 
 
 
-void countLines(int fisier) {
+void countLines(int fisier, int linii_pipe_fd[]) {
     lseek(fisier, 0, SEEK_SET);
 
     char ch;
@@ -183,7 +184,8 @@ void countLines(int fisier) {
             numar_linii++;
         }
     }
-   
+
+    write(linii_pipe_fd[1], &numar_linii, sizeof(numar_linii));
 }
 
 
@@ -225,9 +227,9 @@ void readBMP(char path_name[])
 
 int main(int argn,char *argv[])
 {
-  if(argn!=3)
+  if(argn!=4)
     {
-      perror("eroare\n");
+      perror("eroare nr de argumente\n");
       exit(-1);
     }
   //directorul intrare
@@ -269,7 +271,14 @@ int main(int argn,char *argv[])
       perror("nicio informatie despre director iesire\n");
       exit(-1);
     }
-
+  char caracter = argv[3][0];
+  if(!isalpha(caracter) || islower(caracter))
+    {
+      perror("argumentul 3 nu este caracter");
+      exit(-1);
+    }
+  printf("%c\n\n\n",caracter);
+  
   //deschidere director iesire
 
    if(!(dir2=opendir(argv[2])))
@@ -294,7 +303,22 @@ int main(int argn,char *argv[])
    char path_dir[1026];
    char new_file_name[1024];
  
- 
+
+
+
+   //creare comunicare intre parinte si copii prin pipes
+  int linii_pipe_fd[2];
+  int pid_pipe_fd[2];
+  int exit_code_pipe_fd[2];
+
+  int fisiere_pipe[2], fisiere_pipe2[2]; // pipe fiu1-fiu2  pipe fiu2-parinte
+  pid_t pid_fisier_o=-1;//pid fiu 1
+  pid_t pid_fisier_o2=-1;//pid fiu 2
+
+  if (pipe(linii_pipe_fd) == -1 || pipe(pid_pipe_fd) == -1 || pipe(exit_code_pipe_fd) == -1 ) {
+    perror("eroare creare pipe");
+    exit(-1);
+  }
 
   //parcurgere director
   
@@ -315,6 +339,9 @@ int main(int argn,char *argv[])
 	  pid_t pid=fork();
 	  if(pid==0)
 	    {
+	      close(linii_pipe_fd[0]); 
+	      close(pid_pipe_fd[0]);
+	      close(exit_code_pipe_fd[0]);  // inchidere capete citire parinte
 	      numar_linii = 0;
 	      sprintf(new_file_name,"%s%s",dirr->d_name,"_statistics.txt");
 	      sprintf(path_dir,"%s/%s",argv[2],new_file_name);
@@ -359,6 +386,48 @@ int main(int argn,char *argv[])
 			{
 			  Fisier(dirr->d_name);
 			  Permisiuni(fis);
+			 
+			  
+			  if(pipe(fisiere_pipe)==-1)
+			    {
+			      printf("eroare la crearea comunicarii intre cele 2 procese fiu");
+			      exit(-1);
+			    }
+			   if( pipe(fisiere_pipe2)==-1)
+			    {
+			      printf("eroare la crearea comunicarii intre procesul fiu 2 si parinte");
+			      exit(-1);
+			      }
+			   pid_fisier_o=fork();
+			  
+			  if(pid_fisier_o==0)
+			    {
+			      close(fisiere_pipe[0]);//inchidere citire (fiu 2)
+			      //close(fisiere_pipe2[0]);//inchidere citire (parinte)
+			      dup2(fisiere_pipe[1],1); //redirectioneaza iesirea standard catre pipe
+			      execlp("cat","cat",path_name,NULL);
+			      perror("Eroare la exec pentru fiul 1\n");
+			      exit(-1);
+			      
+			    }
+			  
+			  
+			  pid_fisier_o2=fork();
+			  if(pid_fisier_o2==0)
+			    {
+			      close(fisiere_pipe[1]);//inchide capatul de scriere (fiu 1)
+			      //close(fisiere_pipe2[0]);//inchide capatul de citire (parintele)
+
+			      dup2(fisiere_pipe[0],0); //redirectionare la stdin a capatului de citire (fiu2)
+			      close(fisiere_pipe2[0]); 
+			      dup2(fisiere_pipe2[1],1);//redirectionare la stdout a capatului de scriere (fiu2)
+			      execlp("bash","bash","script.sh",argv[3],NULL);
+
+			      perror("Eroare la exec pentru fiul 2\n");
+			      exit(-1);
+			      
+			      
+			    }
 			}
 		    }
 	      
@@ -375,31 +444,61 @@ int main(int argn,char *argv[])
 		    }
 		}
 	      printf("aici este codul copilului\n");
-	      countLines(fis);
-	      bytes_written = sprintf(buffer, "Numar linii %s: %d\n", dirr->d_name,numar_linii);
-	      write(fisier, buffer, bytes_written);
-	      close (fis);
-	      close(fisier);
+	      countLines(fis, linii_pipe_fd);
+	      pid_t copil_pid = getpid();
+	      int exit_code = 0;    
+
+	      write(pid_pipe_fd[1], &copil_pid, sizeof(copil_pid));
+	      write(exit_code_pipe_fd[1], &exit_code, sizeof(exit_code));
+
+	  
+	      
+	      
+	      
+	      close(fis);
+	      close(linii_pipe_fd[1]); 
+	      close(pid_pipe_fd[1]);   
+	
+	      
+	      
 	      exit(0);
 	    }
-	  else if (pid > 0) {
-            // părintele așteaptă un copil
-            int status;
-            waitpid(pid, &status, 0);
-
-            if (WIFEXITED(status)) {
-                bytes_written = sprintf(buffer, "S-a încheiat procesul cu pid-ul %d și codul %d\n", pid, WEXITSTATUS(status));
-                write(fisier, buffer, bytes_written);
-            }
+	  
         } 
-        
-	
-	    
-	      
-	}
       
     }
- 
+  close(fisiere_pipe[0]);//inchidere fisier citire fiu1
+  close(fisiere_pipe[1]); // inchidere fisier scriere fiu1
+  close(fisiere_pipe2[1]);//inchidere scriere fiu2
+  
+  close(linii_pipe_fd[1]); 
+  close(pid_pipe_fd[1]);  
+  close(exit_code_pipe_fd[1]); //inchidere capat scriere copil
+  waitpid(pid_fisier_o, NULL, 0);
+    waitpid(pid_fisier_o2, NULL, 0);
+  int numar_prop_corecte=-1;
+  read(fisiere_pipe2[0],&numar_prop_corecte,sizeof(numar_prop_corecte));
+    
+  bytes_written= sprintf(buffer,"Numarul de propozitii corecte este care contin caracterul %c este: %d\n", caracter,numar_prop_corecte);
+  write(fisier, buffer, bytes_written);
+  close(fisiere_pipe2[0]);
+
+
+  
+  while ((wait(NULL)) > 0) {
+    read(linii_pipe_fd[0], &numar_linii, sizeof(numar_linii));
+    pid_t copil_pid;
+    int exit_code;
+    read(pid_pipe_fd[0], &copil_pid, sizeof(copil_pid));
+    read(exit_code_pipe_fd[0], &exit_code, sizeof(exit_code));
+    
+   
+    bytes_written = sprintf(buffer, "Numarul de linii: %d\n", numar_linii);
+    write(fisier, buffer, bytes_written);
+    bytes_written = sprintf(buffer, "S-a încheiat procesul cu pid-ul %d și %d\n\n", copil_pid, exit_code);
+    write(fisier, buffer, bytes_written);
+  }
+  
   close(fisier);
   closedir(dir);
   closedir(dir2); 
