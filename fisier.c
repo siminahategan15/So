@@ -26,6 +26,7 @@ char buffer[1024];
 int bytes_written;
 int numar_linii;
 int width, height;
+int count_procese=0;
 
 
 
@@ -175,7 +176,8 @@ void Legatura_simbolica(char name[])
 } 
 
 
-void countLines(int fisier, int linii_pipe_fd[]) {
+void countLines(int fisier) {
+   numar_linii=0;
     lseek(fisier, 0, SEEK_SET);
 
     char ch;
@@ -184,8 +186,6 @@ void countLines(int fisier, int linii_pipe_fd[]) {
             numar_linii++;
         }
     }
-
-    write(linii_pipe_fd[1], &numar_linii, sizeof(numar_linii));
 }
 
 
@@ -307,7 +307,7 @@ int main(int argn,char *argv[])
 
 
    //creare comunicare intre parinte si copii prin pipes
-  int linii_pipe_fd[2];
+   /* int linii_pipe_fd[2];
   int pid_pipe_fd[2];
   int exit_code_pipe_fd[2];
 
@@ -318,7 +318,7 @@ int main(int argn,char *argv[])
   if (pipe(linii_pipe_fd) == -1 || pipe(pid_pipe_fd) == -1 || pipe(exit_code_pipe_fd) == -1 ) {
     perror("eroare creare pipe");
     exit(-1);
-  }
+    }*/
 
   //parcurgere director
   
@@ -336,12 +336,12 @@ int main(int argn,char *argv[])
     {
       if(strcmp(dirr->d_name,".")!=0 && strcmp(dirr->d_name,"..")!=0)
 	{
-	  pid_t pid=fork();
-	  if(pid==0)
-	    {
-	      close(linii_pipe_fd[0]); 
-	      close(pid_pipe_fd[0]);
-	      close(exit_code_pipe_fd[0]);  // inchidere capete citire parinte
+	 // pid_t pid=fork();
+	  //if(pid==0)
+	  // {
+	  // close(linii_pipe_fd[0]); 
+	  // close(pid_pipe_fd[0]);
+	  // close(exit_code_pipe_fd[0]);  // inchidere capete citire parinte
 	      numar_linii = 0;
 	      sprintf(new_file_name,"%s%s",dirr->d_name,"_statistics.txt");
 	      sprintf(path_dir,"%s/%s",argv[2],new_file_name);
@@ -352,8 +352,9 @@ int main(int argn,char *argv[])
 		  exit(-1);
 		}
 	      else
+		{
 		printf("fisierul este deschis\n");
-	  
+		}
 	 
 	  
 	  
@@ -363,32 +364,48 @@ int main(int argn,char *argv[])
 	      
 		  if(S_ISDIR(intrare.st_mode))
 		    {
-		  
-		      Director(dirr->d_name);
-		      Permisiuni(fis);
+		      int pid_director=fork();  //proces pentru a scrie in fisierul _statistics.txt
+		      if(pid_director==0)
+			{
+			  Director(dirr->d_name);
+			  Permisiuni(fis);
+			  exit(0);
+			}
+		       count_procese++;
 		    }
 	      
 		  if(S_ISREG(intrare.st_mode) && strstr(path_name,".bmp"))
 		    {
-		      Fisier_BMP(dirr->d_name, path_name);
-		      Permisiuni(fis);
-		      printf("%d %d\n",width,height);
-		      pid_t pid2=fork();
+		      int pid_bmp=fork();  //proces pentru a scrie in fisierul _statistics.txt
+		      if(pid_bmp==0)
+			{
+			  Fisier_BMP(dirr->d_name, path_name);
+			  Permisiuni(fis);
+			  exit(0);
+			}
+		       count_procese++;
+		      
+		      int pid2=fork(); //proces care face poza gri
 		      if(pid2==0)
 			{
 			  readBMP(path_name);
 			  exit(0);
 			}
+		       count_procese++;
 		    }
 		  else
 		    {
 		      if(S_ISREG(intrare.st_mode))
 			{
-			  Fisier(dirr->d_name);
-			  Permisiuni(fis);
-			 
-			  
-			  if(pipe(fisiere_pipe)==-1)
+			  int pid_fisier_obisnuit=fork(); //proces pentru a scrie in fisierul _statistics.txt
+			  if(pid_fisier_obisnuit==0)
+			    {
+			      Fisier(dirr->d_name);
+			      Permisiuni(fis);
+			      exit(0);
+			    }
+			   count_procese++;
+			   /* if(pipe(fisiere_pipe)==-1)
 			    {
 			      printf("eroare la crearea comunicarii intre cele 2 procese fiu");
 			      exit(-1);
@@ -428,6 +445,7 @@ int main(int argn,char *argv[])
 			      
 			      
 			    }
+			   */ 
 			}
 		    }
 	      
@@ -437,55 +455,63 @@ int main(int argn,char *argv[])
 			{
 			  if(S_ISREG(fisier_leg_simbolica.st_mode))
 			    {
-			      Legatura_simbolica(dirr->d_name);
-			      Permisiuni(fis);
+			      int pid_link=fork();//proces pentru a scrie in fisierul _statistics.txt
+			      if(pid_link==0)
+				{
+				  Legatura_simbolica(dirr->d_name);
+				  Permisiuni(fis);
+				  exit(0);
+				}
+			       count_procese++;
 			    }
 			}
 		    }
 		}
-	      printf("aici este codul copilului\n");
+	      /*printf("aici este codul copilului\n");
 	      countLines(fis, linii_pipe_fd);
 	      pid_t copil_pid = getpid();
 	      int exit_code = 0;    
 
 	      write(pid_pipe_fd[1], &copil_pid, sizeof(copil_pid));
 	      write(exit_code_pipe_fd[1], &exit_code, sizeof(exit_code));
-
+	      */
 	  
 	      
 	      
 	      
-	      close(fis);
-	      close(linii_pipe_fd[1]); 
-	      close(pid_pipe_fd[1]);   
+	      //  close(fis);
+	      //close(linii_pipe_fd[1]); 
+	      //  close(pid_pipe_fd[1]);   
 	
 	      
 	      
-	      exit(0);
-	    }
-	  
+	      // exit(0);
+	      //}
+	 
         } 
       
     }
-  close(fisiere_pipe[0]);//inchidere fisier citire fiu1
+    printf("\n%d\n",count_procese);
+/* close(fisiere_pipe[0]);//inchidere fisier citire fiu1
   close(fisiere_pipe[1]); // inchidere fisier scriere fiu1
   close(fisiere_pipe2[1]);//inchidere scriere fiu2
   
   close(linii_pipe_fd[1]); 
   close(pid_pipe_fd[1]);  
   close(exit_code_pipe_fd[1]); //inchidere capat scriere copil
-  waitpid(pid_fisier_o, NULL, 0);
-    waitpid(pid_fisier_o2, NULL, 0);
+*/
+  //waitpid(pid_fisier_o, NULL, 0);
+    //waitpid(pid_fisier_o2, NULL, 0);
   int numar_prop_corecte=-1;
-  read(fisiere_pipe2[0],&numar_prop_corecte,sizeof(numar_prop_corecte));
+/*read(fisiere_pipe2[0],&numar_prop_corecte,sizeof(numar_prop_corecte));
     
   bytes_written= sprintf(buffer,"Numarul de propozitii corecte este care contin caracterul %c este: %d\n", caracter,numar_prop_corecte);
   write(fisier, buffer, bytes_written);
   close(fisiere_pipe2[0]);
-
+*/
 
   
-  while ((wait(NULL)) > 0) {
+/* while ((wait(NULL)) > 0) {
     read(linii_pipe_fd[0], &numar_linii, sizeof(numar_linii));
     pid_t copil_pid;
     int exit_code;
@@ -497,7 +523,25 @@ int main(int argn,char *argv[])
     write(fisier, buffer, bytes_written);
     bytes_written = sprintf(buffer, "S-a încheiat procesul cu pid-ul %d și %d\n\n", copil_pid, exit_code);
     write(fisier, buffer, bytes_written);
-  }
+    }*/
+  int i, wstatus;
+  for(i=0;i<count_procese;i++)
+    {
+      
+      int w = wait(&wstatus);
+	if (w == -1) {
+	  perror("waitpid");
+	  exit(EXIT_FAILURE);
+	}
+	else
+	  {
+	    //  bytes_written = sprintf(buffer, "Numarul de linii: %d\n", numar_linii);
+	    //write(fisier, buffer, bytes_written);
+	    bytes_written = sprintf(buffer, "S-a încheiat procesul cu pid-ul %d și %d\n\n", w,  WEXITSTATUS(wstatus));
+	    write(fisier, buffer, bytes_written);
+	  }
+      
+    }
   
   close(fisier);
   closedir(dir);
