@@ -25,7 +25,7 @@ int fis;
 char buffer[1024];
 int bytes_written;
 int numar_linii;
-int width, height;
+int width=0, height=0;
 int count_procese=0;
 int prop_corecte=0;
 
@@ -65,7 +65,22 @@ char* mode_to_str(mode_t mode) {
     return "---";
   }
 }
-
+void getHeightWidth(char path_name[])
+{
+  int fisBMP=open(path_name, O_RDONLY);
+  if(fisBMP==-1)
+    {
+      perror("eroare la deschiderea fisierului BMP");
+      exit(-1);
+    }
+  lseek(fisBMP, 18, SEEK_SET); 
+  read(fisBMP, &width, sizeof(int)); 
+  
+  lseek(fisBMP, 22, SEEK_SET); 
+  read(fisBMP, &height, sizeof(int));
+  close(fisBMP);
+}
+  
 void Permisiuni(int fis) //RWX
 {
   char user_permissions_str[4];
@@ -365,6 +380,7 @@ int main(int argn,char *argv[])
 		      int pid2=fork(); //proces care face poza gri
 		      if(pid2==0)
 			{
+			  getHeightWidth(path_name);
 			  readBMP(path_name);
 			  exit(0);
 			}
@@ -385,16 +401,21 @@ int main(int argn,char *argv[])
 			  int pid_fisier_obisnuit=fork(); //proces pentru a scrie in fisierul _statistics.txt  + proces fiu1-fiu2
 			  if(pid_fisier_obisnuit==0)
 			    {
-			      close(pipefd[0]); //inchidem capatul de citire 
+			     
 			      Fisier(dirr->d_name);
 			      Permisiuni(fis);
 		              int nr=countLines(fis);
-			      
-			      
+			      exit(nr);
+			    }
+			  count_procese++;
+			  int pid_fiu_cat =fork();
+			  if(pid_fiu_cat==0)
+			    {
 			      dup2(pipefd[1], 1);
 			      execlp("cat", "cat", path_name, NULL);
 			      perror("eroare la cat\n");
-			      exit(nr);
+			      close(pipefd[0]); //inchidem capatul de citire 
+			      exit(-1);
 			    }
 			  count_procese++;
 			  close(pipefd[1]);//nu scriem in procesul parinte
