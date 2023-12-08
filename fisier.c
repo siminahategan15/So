@@ -411,11 +411,11 @@ int main(int argn,char *argv[])
 			  int pid_fiu_cat =fork();
 			  if(pid_fiu_cat==0)
 			    {
+			      close(pipefd[0]); //inchidem capatul de citire 
 			      dup2(pipefd[1], 1);
 			      execlp("cat", "cat", path_name, NULL);
-			      perror("eroare la cat\n");
-			      close(pipefd[0]); //inchidem capatul de citire 
-			      exit(-1);
+			      perror("eroare la cat\n"); 
+			      exit(0);
 			    }
 			  count_procese++;
 			  close(pipefd[1]);//nu scriem in procesul parinte
